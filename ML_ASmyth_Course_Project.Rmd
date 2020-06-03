@@ -1,0 +1,136 @@
+---
+title: "Machine Learning Project ASmyth"
+author: "Abigail Smyth"
+date: "June 1, 2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE)
+```
+
+## Machine Learning Course Project
+
+We will be using data collected from devices such as Jawbone Up, Nike FuelBand, and Fitbit to build a model to predict the manner in which an exercise was done. We will be reviewing data collected on the belt, forearm, arm, and dumbell of 6 participants that were asked to perform barbell lifts correctly and incorrectly in 5 different ways. We will use this data to build a prediction model to determine the classe variable.
+
+## Summary
+
+We begin with importing the training data set, reviewing the data, removing columns that contain N/A to remove insignificant data. This brings the dataset from 160 columns down to 60 columns. In reviewing the research paper (http://groupware.les.inf.puc-rio.br/har#literature), it is clear that the first 7 columns have no impact on predicting the class and we will remove them as well, bringing our dataset down to 52 predictors. We then split the data set into a training and test set (.70 / .30).
+
+Looking at the classe variable, we see that the highest percentage - 28% of the exercises - fall in classe A (or the classe where the exercise was correctly completed).
+
+Models compared were Decision Tree, Random Forest and Naive Bayes.  Random forest had the highest accuracy at 99%.
+
+```{r importData}
+
+library(caret)
+library(randomForest)
+library(rattle)
+
+train <- read.csv("pml-training.csv", na.strings=c("NA", "#DIV/0!", "", " "));
+test  <- read.csv("pml-testing.csv", na.strings=c("NA", "#DIV/0!", "", " "));
+
+
+train <- train[-c(1:7)];         # remove first 7 columns
+test  <- test[-c(1:7,160)];      # remove first 7 and result column
+
+# function to verify existence of atleast one NA value in a given column
+is.na.column = function(col){ 
+   any(is.na(col))
+}
+
+cols <- names(train);
+non.empty.columns <- which(!sapply(train,is.na.column));
+train <- train[,non.empty.columns]
+
+cols <- names(test);
+non.empty.columns <- which(!sapply(test,is.na.column));
+test <- test[,non.empty.columns]
+
+dim(train);
+summary(train$classe)
+
+dim(test);
+
+trainIndex <- createDataPartition(y=train$classe, p=0.70, list=FALSE);
+trainSet <- train[trainIndex,];
+testSet <- train[-trainIndex,];
+
+```
+
+##Decision Tree Model - ~49% accuracy
+
+```{r decisionTree}
+
+modTree <- train(classe ~ ., data=trainSet, method="rpart")
+print(modTree$finalModel)
+
+fancyRpartPlot(modTree$finalModel)
+predTree <- predict(modTree, testSet)
+cmTree <- confusionMatrix(predTree, testSet$classe)
+print(cmTree);
+```
+
+## Random Forest Model - ~99% accuracy
+
+```{r RandomForest}
+modRF <- randomForest(classe ~. , data=trainSet, method="class")
+predRF <- predict(modRF, testSet)
+cmRF <- confusionMatrix(predRF, testSet$classe)
+print(cmRF);
+```
+
+## Naive Bayes Model - ~75% accuracy
+
+```{r NaiveBayes}
+#modNB <- train(classe ~., data=trainSet, method="nb")
+#predNB <- predict(modNB, testSet)
+#cmNB <- confusionMatrix(predNB, testSet$classe)
+#print(cmNB)
+
+```
+### Naive Bayes Confusion Matrix
+
+***Note - My laptop only has 4Gb RAM and this takes hours to run.  I had to rerun and didn't feel like taking hours to generate the HTML - so copied & pasted the results below from the console.***
+
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 1240   88   53   57   28
+         B   54  802   77    4   96
+         C  151  161  846  188   64
+         D  200   72   42  670   36
+         E   29   16    8   45  858
+
+Overall Statistics
+                                          
+               Accuracy : 0.7504          
+                 95% CI : (0.7391, 0.7614)
+    No Information Rate : 0.2845          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.6861          
+                                          
+ Mcnemar's Test P-Value : < 2.2e-16       
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.7407   0.7041   0.8246   0.6950   0.7930
+Specificity            0.9463   0.9513   0.8839   0.9289   0.9796
+Pos Pred Value         0.8458   0.7764   0.6000   0.6569   0.8975
+Neg Pred Value         0.9018   0.9305   0.9598   0.9396   0.9546
+Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+Detection Rate         0.2107   0.1363   0.1438   0.1138   0.1458
+Detection Prevalence   0.2491   0.1755   0.2396   0.1733   0.1624
+Balanced Accuracy      0.8435   0.8277   0.8542   0.8119   0.8863
+
+## Predicting the Test Results
+
+```{r predictTest}
+predTest <- predict(modRF, test)
+predTest
+```
